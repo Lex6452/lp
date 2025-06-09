@@ -7,5 +7,3 @@
 ```pip3 install pyrogram psycopg2 asyncio tgcrypto httpx```
 
 ```python3 main.py```
-
-алиасы
