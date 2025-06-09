@@ -2,6 +2,10 @@ import psycopg2
 from typing import Optional, List, Dict
 from config import db_config
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_db_connection():
     return psycopg2.connect(**db_config)
@@ -46,10 +50,20 @@ def init_db():
                     activity_type TEXT,
                     PRIMARY KEY (user_id, chat_id, activity_type)
                 );
+                CREATE TABLE IF NOT EXISTS settings (
+                    user_id BIGINT PRIMARY KEY,
+                    prefix TEXT NOT NULL DEFAULT '.'
+                );
+                CREATE TABLE IF NOT EXISTS aliases (
+                    user_id BIGINT NOT NULL,
+                    alias_name TEXT,
+                    command TEXT NOT NULL,
+                    PRIMARY KEY (user_id, alias_name)
+                );
             """)
             conn.commit()
     except Exception as e:
-        print(f"DB Init Error: {e}")
+        logger.error(f"DB Init Error: {e}")
     finally:
         conn.close()
 
@@ -64,7 +78,7 @@ async def template_exists(user_id: int, template_name: str) -> bool:
             )
             return cursor.fetchone() is not None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -82,7 +96,7 @@ async def save_template(user_id: int, template_name: str, template_text: str) ->
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -100,7 +114,7 @@ async def get_template(user_id: int, template_name: str) -> Optional[str]:
             result = cursor.fetchone()
             return result[0] if result else None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return None
     finally:
         if conn:
@@ -118,7 +132,7 @@ async def delete_template(user_id: int, template_name: str) -> bool:
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -135,7 +149,7 @@ async def list_templates(user_id: int) -> List[str]:
             )
             return [row[0] for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
     finally:
         if conn:
@@ -153,7 +167,7 @@ async def add_speed_server(name: str, url: str) -> bool:
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -171,7 +185,7 @@ async def remove_speed_server(name: str) -> bool:
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -187,7 +201,7 @@ async def list_speed_servers() -> List[Dict[str, str]]:
             )
             return [{"id": row[0], "name": row[1], "url": row[2]} for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
     finally:
         if conn:
@@ -205,7 +219,7 @@ async def get_speed_server(server_id: int) -> Optional[Dict[str, str]]:
             result = cursor.fetchone()
             return {"name": result[0], "url": result[1]} if result else None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return None
     finally:
         if conn:
@@ -222,7 +236,7 @@ async def voice_message_exists(user_id: int, voice_name: str) -> bool:
             )
             return cursor.fetchone() is not None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -240,7 +254,7 @@ async def save_voice_message(user_id: int, voice_name: str, file_path: str) -> b
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -268,7 +282,7 @@ async def delete_voice_message(user_id: int, voice_name: str) -> bool:
                 return True
             return False
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -285,7 +299,7 @@ async def list_voice_messages(user_id: int) -> List[Dict[str, str]]:
             )
             return [{"name": row[0], "file_path": row[1]} for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
     finally:
         if conn:
@@ -303,7 +317,7 @@ async def get_voice_message(user_id: int, voice_name: str) -> Optional[str]:
             result = cursor.fetchone()
             return result[0] if result else None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return None
     finally:
         if conn:
@@ -320,7 +334,7 @@ async def anim_exists(user_id: int, anim_name: str) -> bool:
             )
             return cursor.fetchone() is not None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -339,7 +353,7 @@ async def save_animation(user_id: int, anim_name: str, frames: List[str]) -> boo
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -357,7 +371,7 @@ async def delete_animation(user_id: int, anim_name: str) -> bool:
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -377,7 +391,7 @@ async def get_animation(user_id: int, anim_name: str) -> Optional[List[str]]:
                 return [frame.strip() for frame in result[0].split("#$") if frame.strip()]
             return None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return None
     finally:
         if conn:
@@ -394,7 +408,7 @@ async def list_animations(user_id: int) -> List[str]:
             )
             return [row[0] for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
     finally:
         if conn:
@@ -411,7 +425,7 @@ async def video_note_exists(user_id: int, video_note_name: str) -> bool:
             )
             return cursor.fetchone() is not None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -429,7 +443,7 @@ async def save_video_note(user_id: int, video_note_name: str, file_path: str) ->
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -457,7 +471,7 @@ async def delete_video_note(user_id: int, video_note_name: str) -> bool:
                 return True
             return False
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -474,7 +488,7 @@ async def list_video_notes(user_id: int) -> List[Dict[str, str]]:
             )
             return [{"name": row[0], "file_path": row[1]} for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
     finally:
         if conn:
@@ -492,7 +506,7 @@ async def get_video_note(user_id: int, video_note_name: str) -> Optional[str]:
             result = cursor.fetchone()
             return result[0] if result else None
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return None
     finally:
         if conn:
@@ -510,7 +524,7 @@ async def add_fake_activity(user_id: int, chat_id: int, activity_type: str) -> b
             conn.commit()
             return True
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -528,7 +542,7 @@ async def remove_fake_activity(user_id: int, chat_id: int, activity_type: str) -
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return False
     finally:
         if conn:
@@ -545,8 +559,142 @@ async def list_fake_activities(user_id: int, activity_type: str) -> List[Dict[st
             )
             return [{"chat_id": row[0]} for row in cursor.fetchall()]
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+async def set_user_prefix(user_id: int, prefix: str) -> bool:
+    """Устанавливает префикс для пользователя."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO settings (user_id, prefix) VALUES (%s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET prefix = %s
+                """,
+                (user_id, prefix, prefix)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Ошибка установки префикса: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def get_user_prefix(user_id: int) -> str:
+    """Получает префикс пользователя или возвращает '.' по умолчанию."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT prefix FROM settings WHERE user_id = %s",
+                (user_id,)
+            )
+            result = cursor.fetchone()
+            return result[0] if result else "."
+    except Exception as e:
+        logger.error(f"Ошибка получения префикса: {e}")
+        return "."
+    finally:
+        if conn:
+            conn.close()
+
+async def alias_exists(user_id: int, alias_name: str) -> bool:
+    """Проверяет, существует ли алиас."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM aliases WHERE user_id = %s AND alias_name = %s",
+                (user_id, alias_name)
+            )
+            return cursor.fetchone() is not None
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def save_alias(user_id: int, alias_name: str, command: str) -> bool:
+    """Сохраняет алиас в базу."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO aliases (user_id, alias_name, command) VALUES (%s, %s, %s)",
+                (user_id, alias_name, command)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def delete_alias(user_id: int, alias_name: str) -> bool:
+    """Удаляет алиас."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM aliases WHERE user_id = %s AND alias_name = %s",
+                (user_id, alias_name)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def list_aliases(user_id: int) -> List[Dict[str, str]]:
+    """Возвращает список алиасов пользователя."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT alias_name, command FROM aliases WHERE user_id = %s ORDER BY alias_name",
+                (user_id,)
+            )
+            return [{"name": row[0], "command": row[1]} for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+async def get_alias_command(user_id: int, alias_name: str) -> Optional[str]:
+    """Получает команду, связанную с алиасом."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT command FROM aliases WHERE user_id = %s AND alias_name = %s",
+                (user_id, alias_name)
+            )
+            result = cursor.fetchone()
+            return result[0] if result else None
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return None
     finally:
         if conn:
             conn.close()
