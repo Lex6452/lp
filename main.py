@@ -19,6 +19,9 @@ from commands.megapush_cmd import register as register_megapush
 from commands.choose_cmd import register as register_choose
 from commands.fake_activity_cmd import register as register_fake_activity
 from commands.online_cmd import register as register_online
+from commands.prefix_cmd import register as register_prefix
+from commands.profile_cmd import register as register_profile
+from commands.alias_cmd import register as register_alias
 
 # Настройка логирования
 logging.basicConfig(
@@ -59,6 +62,9 @@ def register_all_commands(app):
     register_choose(app)
     register_fake_activity(app)
     register_online(app)
+    register_prefix(app)
+    register_profile(app)
+    register_alias(app)
 
 async def error_handler(client: Client, update, users: dict, chats: dict):
     """Глобальный обработчик ошибок для логирования."""
