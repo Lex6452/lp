@@ -63,5 +63,5 @@ async def edit_and_delete_messages(client: Client, message: Message):
         await message.edit(f"⚠️ Ошибка: {str(e)}")
 
 def register(app: Client):
-    app.on_message(filters.command("дд", prefixes=".") & filters.me)(delete_my_messages)
-    app.on_message(filters.command("дд-", prefixes=".") & filters.me)(edit_and_delete_messages)
+    app.on_message(filters.command("дд", prefixes="") & filters.me)(delete_my_messages)
+    app.on_message(filters.command("дд-", prefixes="") & filters.me)(edit_and_delete_messages)

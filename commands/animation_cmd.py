@@ -11,7 +11,7 @@ async def add_animation_cmd(client: Client, message: Message):
             await message.edit("❌ Ответьте на сообщение с анимацией!")
             return
 
-        anim_name = message.text.split(maxsplit=1)[1].strip()
+        anim_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         anim_text = message.reply_to_message.text
 
@@ -35,7 +35,7 @@ async def add_animation_cmd(client: Client, message: Message):
 
 async def delete_animation_cmd(client: Client, message: Message):
     try:
-        anim_name = message.text.split(maxsplit=1)[1].strip()
+        anim_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if await delete_animation(user_id, anim_name):
@@ -60,7 +60,7 @@ async def list_animations_cmd(client: Client, message: Message):
 
 async def get_animation_cmd(client: Client, message: Message):
     try:
-        anim_name = message.text.split(maxsplit=1)[1].strip()
+        anim_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         frames = await get_animation(user_id, anim_name)
 

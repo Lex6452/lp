@@ -9,7 +9,7 @@ async def save_template_cmd(client: Client, message: Message):
             await message.edit("❌ Ответьте на текстовое сообщение!")
             return
 
-        template_name = message.text.split(maxsplit=1)[1].strip()
+        template_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         template_text = message.reply_to_message.text
 
@@ -26,7 +26,7 @@ async def save_template_cmd(client: Client, message: Message):
 
 async def get_template_cmd(client: Client, message: Message):
     try:
-        template_name = message.text.split(maxsplit=1)[1].strip()
+        template_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         template_text = await get_template(user_id, template_name)
 
@@ -39,7 +39,7 @@ async def get_template_cmd(client: Client, message: Message):
 
 async def delete_template_cmd(client: Client, message: Message):
     try:
-        template_name = message.text.split(maxsplit=1)[1].strip()
+        template_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if await delete_template(user_id, template_name):

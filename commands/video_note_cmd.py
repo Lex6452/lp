@@ -22,7 +22,7 @@ async def add_video_note_cmd(client: Client, message: Message):
             await message.edit("❌ Ответьте на видеокружочек!")
             return
 
-        video_note_name = message.text.split(maxsplit=1)[1].strip()
+        video_note_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if not (1 <= len(video_note_name) <= 50):
@@ -63,7 +63,7 @@ async def add_video_note_cmd(client: Client, message: Message):
 async def delete_video_note_cmd(client: Client, message: Message):
     """Удаляет видеокружочек по имени."""
     try:
-        video_note_name = message.text.split(maxsplit=1)[1].strip()
+        video_note_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if await delete_video_note(user_id, video_note_name):
@@ -90,7 +90,7 @@ async def list_video_notes_cmd(client: Client, message: Message):
 async def get_video_note_cmd(client: Client, message: Message):
     """Отправляет сохранённый видеокружочек по имени."""
     try:
-        video_note_name = message.text.split(maxsplit=1)[1].strip()
+        video_note_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         file_path = await get_video_note(user_id, video_note_name)
 

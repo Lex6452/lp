@@ -3,6 +3,7 @@ import os
 import unicodedata
 import re
 import subprocess
+import random
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from db.db_utils import voice_message_exists, save_voice_message, delete_voice_message, list_voice_messages, get_voice_message
@@ -20,6 +21,14 @@ def normalize_filename(name: str) -> str:
     name = re.sub(r'_+', '_', name)
     name = name.strip('_')
     return name or 'voice'
+
+def generate_unique_filename(save_dir: str, user_id: int) -> str:
+    """Генерирует уникальное имя файла для голосового сообщения."""
+    while True:
+        random_id = random.randint(100000, 999999)  # Случайное 6-значное число
+        file_path = os.path.join(save_dir, f"voice_{user_id}_voice_{random_id}.ogg")
+        if not os.path.exists(file_path):
+            return file_path
 
 async def has_audio_track(file_path: str) -> bool:
     """Проверяет наличие аудиодорожки в файле."""
@@ -44,7 +53,7 @@ async def add_voice_message_cmd(client: Client, message: Message):
             await message.edit("❌ Ответьте на голосовое сообщение, аудиофайл или видео!")
             return
 
-        voice_name = message.text.split(maxsplit=1)[1].strip()
+        voice_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if not (1 <= len(voice_name) <= 50):
@@ -63,9 +72,8 @@ async def add_voice_message_cmd(client: Client, message: Message):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
-        safe_name = normalize_filename(voice_name)
         temp_path = os.path.join(save_dir, f"temp_{user_id}_{message.reply_to_message.id}")
-        final_path = os.path.join(save_dir, f"voice_{user_id}_{safe_name}.ogg")
+        final_path = generate_unique_filename(save_dir, user_id)
 
         if message.reply_to_message.voice:
             file_to_download = message.reply_to_message.voice
@@ -122,7 +130,7 @@ async def add_voice_message_cmd(client: Client, message: Message):
 
         if await save_voice_message(user_id, voice_name, final_path):
             await message.edit(f"✅ Аудиозапись '{voice_name}' сохранена как голосовое сообщение!")
-            logger.info(f"Voice message '{voice_name}' saved for user {user_id}")
+            logger.info(f"Voice message '{voice_name}' saved for user {user_id} at {final_path}")
         else:
             await message.edit("❌ Ошибка при сохранении!")
             if os.path.exists(final_path):
@@ -138,7 +146,7 @@ async def add_voice_message_cmd(client: Client, message: Message):
 async def delete_voice_message_cmd(client: Client, message: Message):
     """Удаляет голосовое сообщение."""
     try:
-        voice_name = message.text.split(maxsplit=1)[1].strip()
+        voice_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
 
         if await delete_voice_message(user_id, voice_name):
@@ -167,7 +175,7 @@ async def list_voice_messages_cmd(client: Client, message: Message):
 async def get_voice_message_cmd(client: Client, message: Message):
     """Отправляет голосовое сообщение по имени."""
     try:
-        voice_name = message.text.split(maxsplit=1)[1].strip()
+        voice_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
         file_path = await get_voice_message(user_id, voice_name)
 
