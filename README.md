@@ -12,7 +12,7 @@ sudo apt-get install -y ffmpeg
 
 Установка библиотек
 ```shell
-pip3 install pyrogram psycopg2 asyncio tgcrypto httpx
+pip3 install pyrogram psycopg2 asyncio tgcrypto httpx Pillow
 ```
 
 Запуск
