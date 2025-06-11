@@ -15,6 +15,13 @@ sudo apt-get install -y ffmpeg
 pip3 install pyrogram psycopg2 asyncio tgcrypto httpx Pillow
 ```
 
+```shell
+cd resources/fonts
+```
+```shell
+wget https://github.com/googlefonts/noto-emoji/raw/main/fonts/NotoColorEmoji.ttf
+```
+
 Запуск
 ```shell
 python3 main.py
