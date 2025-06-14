@@ -7,3 +7,6 @@ db_config = {
     "host": "localhost",
     "port": "5432"
 }
+
+OPENWEATHERMAP_API_KEY = "111111111111111111"
+NASA_API_KEY = "1111111111111111111"
