@@ -1,7 +1,7 @@
 import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from db.db_utils import get_user_prefix, list_video_notes, list_voice_messages, list_templates
+from db.db_utils import get_user_prefix, list_video_notes, list_voice_messages, list_templates, get_edit_text, get_delete_cmd
 from pyrogram.enums import ParseMode
 
 # Настройка логирования
@@ -16,6 +16,8 @@ async def profile_cmd(client: Client, message: Message):
         video_notes = await list_video_notes(user_id)
         voice_messages = await list_voice_messages(user_id)
         templates = await list_templates(user_id)
+        edit_text = await get_edit_text(user_id)
+        delete_cmd = await get_delete_cmd(user_id)
 
         profile_text = (
             f"👤 <b>Ваш профиль</b>\n\n"
@@ -23,7 +25,8 @@ async def profile_cmd(client: Client, message: Message):
             f"🔣 <b>Префикс</b>: {prefix}\n"
             f"📹 <b>Видеокружочков</b>: {len(video_notes)}\n"
             f"🎙️ <b>Голосовых сообщений</b>: {len(voice_messages)}\n"
-            f"📝 <b>Шаблонов</b>: {len(templates)}"
+            f"📝 <b>Шаблонов</b>: {len(templates)}\n"
+            f"✏️ <b>Удалялка \"{delete_cmd}\" редактируется на</b>: {edit_text}\n"
         )
 
         await message.edit(profile_text, parse_mode=ParseMode.HTML)

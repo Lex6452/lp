@@ -4,9 +4,10 @@ import unicodedata
 import re
 import subprocess
 import random
+import pyrogram
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from db.db_utils import voice_message_exists, save_voice_message, delete_voice_message, list_voice_messages, get_voice_message
+from db.db_utils import voice_message_exists, save_voice_message, delete_voice_message, list_voice_messages, get_voice_message, list_voice_categories
 from utils.filters import add_voice_filter, delete_voice_filter, get_voice_filter, list_voices_filter
 
 # Настройка логирования
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def normalize_filename(name: str) -> str:
     """Нормализует имя файла, удаляя недопустимые символы."""
-    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ascii')
+    name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
     name = name.replace(' ', '_')
     name = re.sub(r'[^\w.]', '', name)
     name = re.sub(r'_+', '_', name)
@@ -53,7 +54,13 @@ async def add_voice_message_cmd(client: Client, message: Message):
             await message.edit("❌ Ответьте на голосовое сообщение, аудиофайл или видео!")
             return
 
-        voice_name = message.text.split(maxsplit=2)[2].strip()
+        parts = message.text.split(maxsplit=2)
+        if len(parts) < 3:
+            await message.edit("❌ Укажите имя голосового сообщения, например: <префикс> +гс имя | категория")
+            return
+        voice_info = parts[2].strip().split("|", 1)
+        voice_name = voice_info[0].strip()
+        category = "без категории" if len(voice_info) < 2 else voice_info[1].strip()
         user_id = message.from_user.id
 
         if not (1 <= len(voice_name) <= 50):
@@ -128,9 +135,9 @@ async def add_voice_message_cmd(client: Client, message: Message):
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-        if await save_voice_message(user_id, voice_name, final_path):
-            await message.edit(f"✅ Аудиозапись '{voice_name}' сохранена как голосовое сообщение!")
-            logger.info(f"Voice message '{voice_name}' saved for user {user_id} at {final_path}")
+        if await save_voice_message(user_id, voice_name, final_path, category):
+            await message.edit(f"✅ Аудиозапись '{voice_name}' сохранена в категории '{category}'!")
+            logger.info(f"Voice message '{voice_name}' saved for user {user_id} at {final_path}, category '{category}'")
         else:
             await message.edit("❌ Ошибка при сохранении!")
             if os.path.exists(final_path):
@@ -155,38 +162,81 @@ async def delete_voice_message_cmd(client: Client, message: Message):
             await message.edit(f"❌ Голосовое сообщение '{voice_name}' не найдено!")
     except Exception as e:
         logger.error(f"Ошибка при удалении голосового сообщения: {e}")
-        await message.edit(f"⚠️ Ошибка: {str(e)}")
+        try:
+            await message.edit(f"⚠️ Ошибка: {str(e)}")
+        except pyrogram.errors.Forbidden:
+            logger.error(f"Нет прав на редактирование сообщения: user_id={user_id}, chat_id={message.chat.id}")
+            pass
 
 async def list_voice_messages_cmd(client: Client, message: Message):
     """Выводит список голосовых сообщений."""
     try:
         user_id = message.from_user.id
-        voices = await list_voice_messages(user_id)
+        parts = message.text.strip().split(maxsplit=2)  # <префикс> <команда> <аргумент>
+        logger.info(f"Обработка команды гсы: {message.text}, parts={parts}, user_id={user_id}")
 
+        # Команда без аргументов: <префикс> гсы
+        if len(parts) < 3 or not parts[2].strip():
+            categories = await list_voice_categories(user_id)
+            if not categories:
+                await message.edit("📂 У вас нет категорий и голосовых сообщений!")
+            else:
+                categories_list = "\n".join(f"- {cat} ({count})" for cat, count in categories)
+                await message.edit(f"Категории голосовых сообщений:\n\n{categories_list}")
+            return
+
+        # Получаем аргумент
+        arg = parts[2].strip()
+
+        # Команда <префикс> гсы все
+        if arg.lower() == "все":
+            voices = await list_voice_messages(user_id)
+            if not voices:
+                await message.edit("📂 У вас нет голосовых сообщений!")
+            else:
+                voices_list = "\n".join(f"- {voice['name']} | {voice['category']}" for voice in voices)
+                await message.edit(f"Список всех голосовых сообщений:\n\n{voices_list}")
+            return
+
+        # Команда <префикс> гсы <категория>
+        category = arg
+        voices = await list_voice_messages(user_id, category)
         if not voices:
-            await message.edit("📂 У вас нет сохранённых голосовых сообщений!")
+            await message.edit(f"📂 В категории '{category}' нет голосовых сообщений!")
         else:
-            voices_list = "\n".join(f"{i+1}. {voice['name']}" for i, voice in enumerate(voices))
-            await message.edit(f"📂 Ваши голосовые сообщения:\n\n{voices_list}\n\nВсего: {len(voices)}")
+            voices_list = "\n".join(f"- {voice['name']}" for voice in voices)
+            await message.edit(f"📂 Голосовые сообщения в категории '{category}':\n\n{voices_list}")
     except Exception as e:
-        logger.error(f"Ошибка при выводе списка голосовых сообщений: {e}")
-        await message.edit(f"⚠️ Ошибка: {str(e)}")
+        logger.error(f"Ошибка при выводе списка голосов: {e}")
+        try:
+            await message.delete()
+        except pyrogram.errors.Forbidden:
+            logger.error(f"Нет прав на удаление сообщения: user_id={user_id}, chat_id={message.chat.id}")
+            pass
 
 async def get_voice_message_cmd(client: Client, message: Message):
     """Отправляет голосовое сообщение по имени."""
     try:
         voice_name = message.text.split(maxsplit=2)[2].strip()
         user_id = message.from_user.id
-        file_path = await get_voice_message(user_id, voice_name)
+        voice = await get_voice_message(user_id, voice_name)
 
-        if file_path and os.path.exists(file_path):
-            await message.delete()
-            await client.send_voice(message.chat.id, file_path)
+        if voice and os.path.exists(voice['file_path']):
+            try:
+                await message.delete()
+                await client.send_voice(message.chat.id, voice['file_path'])
+            except Exception as send_err:
+                logger.error(f"Ошибка при отправке голосового сообщения: {send_err}")
+                await message.edit(f"⚠️ Ошибка при отправке: {send_err}")
         else:
             await message.edit(f"❌ Голосовое сообщение '{voice_name}' не найдено!")
     except Exception as e:
         logger.error(f"Ошибка при отправке голосового сообщения: {e}")
-        await message.edit(f"⚠️ Ошибка: {str(e)}")
+        try:
+            await message.edit(f"⚠️ Ошибка: {str(e)}")
+        except pyrogram.errors.Forbidden:
+            logger.error(f"Нет прав на редактирование сообщения: user_id={user_id}, chat_id={message.chat.id}")
+            pass
 
 def register(app: Client):
     """Регистрирует обработчики команд."""
