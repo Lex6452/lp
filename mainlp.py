@@ -22,6 +22,18 @@ from commands.online_cmd import register as register_online
 from commands.prefix_cmd import register as register_prefix
 from commands.profile_cmd import register as register_profile
 from commands.alias_cmd import register as register_alias
+from commands.demotivator_cmd import register as register_demotivator
+from commands.quote_cmd import register as register_quote
+from commands.screenshot_cmd import register as register_screenshot
+from commands.redach_cmd import register as register_redach
+from commands.udalyalka_cmd import register as register_udalyalka
+from commands.spam_cmd import register as register_spam
+from commands.interval_cmd import register as register_interval
+from commands.ping_cmd import register as register_ping
+from commands.advice_cmd import register as register_advice
+from commands.trap_cmd import register as register_trap
+from commands.weather_cmd import register as register_weather
+from commands.space_cmd import register as register_space
 
 # Настройка логирования
 logging.basicConfig(
@@ -65,6 +77,18 @@ def register_all_commands(app):
     register_prefix(app)
     register_profile(app)
     register_alias(app)
+    register_demotivator(app)
+    register_quote(app)
+    register_screenshot(app)
+    register_redach(app)
+    register_udalyalka(app)
+    register_spam(app)
+    register_interval(app)
+    register_ping(app)
+    register_advice(app)
+    register_trap(app)
+    register_weather(app)
+    register_space(app)
 
 async def error_handler(client: Client, update, users: dict, chats: dict):
     """Глобальный обработчик ошибок для логирования."""
