@@ -34,6 +34,11 @@ from commands.advice_cmd import register as register_advice
 from commands.trap_cmd import register as register_trap
 from commands.weather_cmd import register as register_weather
 from commands.space_cmd import register as register_space
+from commands.cat_cmd import register as register_cat
+from commands.ip_cmd import register as register_ip
+from commands.whois_cmd import register as register_whois
+from commands.conv_cmd import register as register_conv
+from commands.id_cmd import register as register_id
 
 # Настройка логирования
 logging.basicConfig(
@@ -89,6 +94,11 @@ def register_all_commands(app):
     register_trap(app)
     register_weather(app)
     register_space(app)
+    register_cat(app)
+    register_ip(app)
+    register_whois(app)
+    register_conv(app)
+    register_id(app)
 
 async def error_handler(client: Client, update, users: dict, chats: dict):
     """Глобальный обработчик ошибок для логирования."""
