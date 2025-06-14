@@ -1,8 +1,10 @@
 import psycopg2
-from typing import Optional, List, Dict
+from psycopg2.extras import DictCursor
+from typing import Optional, List, Dict, Any
 from config import db_config
 import os
 import logging
+from typing import Tuple
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +21,7 @@ def init_db():
                     user_id BIGINT,
                     template_name TEXT,
                     template_text TEXT,
+                    category TEXT DEFAULT 'без категории',
                     PRIMARY KEY (user_id, template_name)
                 );
                 CREATE TABLE IF NOT EXISTS speed_servers (
@@ -30,6 +33,7 @@ def init_db():
                     user_id BIGINT,
                     voice_name TEXT,
                     file_path TEXT,
+                    category TEXT DEFAULT 'без категории',
                     PRIMARY KEY (user_id, voice_name)
                 );
                 CREATE TABLE IF NOT EXISTS animations (
@@ -52,13 +56,23 @@ def init_db():
                 );
                 CREATE TABLE IF NOT EXISTS settings (
                     user_id BIGINT PRIMARY KEY,
-                    prefix TEXT NOT NULL DEFAULT '.'
+                    prefix TEXT NOT NULL DEFAULT '.',
+                    edit_text TEXT DEFAULT '🫥🫥🫥',
+                    delete_cmd TEXT DEFAULT 'дд'
                 );
                 CREATE TABLE IF NOT EXISTS aliases (
                     user_id BIGINT NOT NULL,
                     alias_name TEXT,
                     command TEXT NOT NULL,
                     PRIMARY KEY (user_id, alias_name)
+                );
+                CREATE TABLE IF NOT EXISTS intervals (
+                    user_id BIGINT,
+                    interval_name TEXT,
+                    chat_id BIGINT,
+                    interval_minutes INTEGER,
+                    interval_text TEXT,
+                    PRIMARY KEY (user_id, interval_name)
                 );
             """)
             conn.commit()
@@ -78,43 +92,43 @@ async def template_exists(user_id: int, template_name: str) -> bool:
             )
             return cursor.fetchone() is not None
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in template_exists: {e}")
         return False
     finally:
         if conn:
             conn.close()
 
-async def save_template(user_id: int, template_name: str, template_text: str) -> bool:
+async def save_template(user_id: int, template_name: str, template_text: str, category: str = "без категории") -> bool:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO templates (user_id, template_name, template_text) VALUES (%s, %s, %s)",
-                (user_id, template_name, template_text)
+                "INSERT INTO templates (user_id, template_name, template_text, category) VALUES (%s, %s, %s, %s)",
+                (user_id, template_name, template_text, category)
             )
             conn.commit()
             return True
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in save_template: {e}")
         return False
     finally:
         if conn:
             conn.close()
 
-async def get_template(user_id: int, template_name: str) -> Optional[str]:
+async def get_template(user_id: int, template_name: str) -> Optional[Tuple[str, str]]:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT template_text FROM templates WHERE user_id = %s AND template_name = %s",
+                "SELECT template_text, category FROM templates WHERE user_id = %s AND template_name = %s",
                 (user_id, template_name)
             )
             result = cursor.fetchone()
-            return result[0] if result else None
+            return (result[0], result[1]) if result else None
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in get_template: {e}")
         return None
     finally:
         if conn:
@@ -132,24 +146,53 @@ async def delete_template(user_id: int, template_name: str) -> bool:
             conn.commit()
             return cursor.rowcount > 0
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in delete_template: {e}")
         return False
     finally:
         if conn:
             conn.close()
 
-async def list_templates(user_id: int) -> List[str]:
+async def list_templates(user_id: int, category: Optional[str] = None) -> List[Tuple[str, str]]:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            if category:
+                cursor.execute(
+                    "SELECT template_name, category FROM templates WHERE user_id = %s AND category = %s ORDER BY template_name",
+                    (user_id, category)
+                )
+            else:
+                cursor.execute(
+                    "SELECT template_name, category FROM templates WHERE user_id = %s ORDER BY template_name",
+                    (user_id,)
+                )
+            return [(row[0], row[1]) for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"DB Error in list_templates: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+async def list_categories(user_id: int) -> List[Tuple[str, int]]:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT template_name FROM templates WHERE user_id = %s ORDER BY template_name",
+                """
+                SELECT category, COUNT(*) as count
+                FROM templates
+                WHERE user_id = %s
+                GROUP BY category
+                ORDER BY category
+                """,
                 (user_id,)
             )
-            return [row[0] for row in cursor.fetchall()]
+            return [(row[0], row[1]) for row in cursor.fetchall()]
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in list_categories: {e}")
         return []
     finally:
         if conn:
@@ -242,19 +285,19 @@ async def voice_message_exists(user_id: int, voice_name: str) -> bool:
         if conn:
             conn.close()
 
-async def save_voice_message(user_id: int, voice_name: str, file_path: str) -> bool:
+async def save_voice_message(user_id: int, voice_name: str, file_path: str, category: str = "без категории") -> bool:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO voice_messages (user_id, voice_name, file_path) VALUES (%s, %s, %s)",
-                (user_id, voice_name, file_path)
+                "INSERT INTO voice_messages (user_id, voice_name, file_path, category) VALUES (%s, %s, %s, %s)",
+                (user_id, voice_name, file_path, category)
             )
             conn.commit()
             return True
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in save_voice_message: {e}")
         return False
     finally:
         if conn:
@@ -288,37 +331,66 @@ async def delete_voice_message(user_id: int, voice_name: str) -> bool:
         if conn:
             conn.close()
 
-async def list_voice_messages(user_id: int) -> List[Dict[str, str]]:
+async def list_voice_messages(user_id: int, category: Optional[str] = None) -> List[Dict[str, str]]:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT voice_name, file_path FROM voice_messages WHERE user_id = %s ORDER BY voice_name",
-                (user_id,)
-            )
-            return [{"name": row[0], "file_path": row[1]} for row in cursor.fetchall()]
+            if category:
+                cursor.execute(
+                    "SELECT voice_name, category FROM voice_messages WHERE user_id = %s AND category = %s ORDER BY voice_name",
+                    (user_id, category)
+                )
+            else:
+                cursor.execute(
+                    "SELECT voice_name, category FROM voice_messages WHERE user_id = %s ORDER BY voice_name",
+                    (user_id,)
+                )
+            return [{"name": row[0], "category": row[1]} for row in cursor.fetchall()]
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in list_voice_messages: {e}")
         return []
     finally:
         if conn:
             conn.close()
 
-async def get_voice_message(user_id: int, voice_name: str) -> Optional[str]:
+async def get_voice_message(user_id: int, voice_name: str) -> Optional[Dict[str, str]]:
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT file_path FROM voice_messages WHERE user_id = %s AND voice_name = %s",
+                "SELECT file_path, category FROM voice_messages WHERE user_id = %s AND voice_name = %s",
                 (user_id, voice_name)
             )
             result = cursor.fetchone()
-            return result[0] if result else None
+            return {"file_path": result[0], "category": result[1]} if result else None
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.error(f"DB Error in get_voice_message: {e}")
         return None
+    finally:
+        if conn:
+            conn.close()
+
+async def list_voice_categories(user_id: int) -> List[Tuple[str, int]]:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT category, COUNT(*) as count
+                FROM voice_messages
+                WHERE user_id = %s
+                GROUP BY category
+                ORDER BY category
+                """,
+                (user_id,)
+            )
+            return [(row[0], row[1]) for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"DB Error in list_voice_categories: {e}")
+        return []
     finally:
         if conn:
             conn.close()
@@ -695,6 +767,151 @@ async def get_alias_command(user_id: int, alias_name: str) -> Optional[str]:
     except Exception as e:
         logger.error(f"DB Error: {e}")
         return None
+    finally:
+        if conn:
+            conn.close()
+
+async def get_edit_text(user_id: int) -> str:
+    """Получает текст редактирования для пользователя."""
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cursor:
+            cursor.execute("SELECT edit_text FROM settings WHERE user_id = %s", (user_id,))
+            result = cursor.fetchone()
+            return result['edit_text'] if result else '🫥🫥🫥'
+    except Exception as e:
+        logger.error(f"Ошибка при получении edit_text для user_id={user_id}: {e}")
+        return '🫥🫥🫥'
+    finally:
+        if conn:
+            conn.close()
+
+async def set_edit_text(user_id: int, edit_text: str) -> bool:
+    """Устанавливает текст редактирования для пользователя."""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO settings (user_id, edit_text)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id)
+                DO UPDATE SET edit_text = %s
+            """, (user_id, edit_text, edit_text))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Ошибка при установке edit_text для user_id={user_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def get_delete_cmd(user_id: int) -> str:
+    """Получает название команды удаления для пользователя."""
+    try:
+        conn = get_db_connection()
+        with conn.cursor(cursor_factory=DictCursor) as cursor:
+            cursor.execute("SELECT delete_cmd FROM settings WHERE user_id = %s", (user_id,))
+            result = cursor.fetchone()
+            return result['delete_cmd'] if result else 'дд'
+    except Exception as e:
+        logger.error(f"Ошибка при получении delete_cmd для user_id={user_id}: {e}")
+        return 'дд'
+    finally:
+        if conn:
+            conn.close()
+
+async def set_delete_cmd(user_id: int, delete_cmd: str) -> bool:
+    """Устанавливает название команды удаления для пользователя."""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO settings (user_id, delete_cmd)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id)
+                DO UPDATE SET delete_cmd = %s
+            """, (user_id, delete_cmd, delete_cmd))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Ошибка при установке delete_cmd для user_id={user_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def save_interval(user_id: int, interval_name: str, chat_id: int, interval_minutes: int, interval_text: str) -> bool:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO intervals (user_id, interval_name, chat_id, interval_minutes, interval_text) VALUES (%s, %s, %s, %s, %s)",
+                (user_id, interval_name, chat_id, interval_minutes, interval_text)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"DB Error in save_interval: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def delete_interval(user_id: int, interval_name: str) -> bool:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM intervals WHERE user_id = %s AND interval_name = %s",
+                (user_id, interval_name)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        logger.error(f"DB Error in delete_interval: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+async def list_intervals(user_id: int) -> List[Dict[str, Any]]:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT interval_name, chat_id, interval_minutes, interval_text FROM intervals WHERE user_id = %s",
+                (user_id,)
+            )
+            return [{
+                'interval_name': row[0],
+                'chat_id': row[1],
+                'interval_minutes': row[2],
+                'interval_text': row[3]
+            } for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"DB Error in list_intervals: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+async def count_intervals(user_id: int) -> int:
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM intervals WHERE user_id = %s",
+                (user_id,)
+            )
+            return cursor.fetchone()[0]
+    except Exception as e:
+        logger.error(f"DB Error in count_intervals: {e}")
+        return 0
     finally:
         if conn:
             conn.close()
